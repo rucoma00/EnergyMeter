@@ -239,7 +239,7 @@ extern WDATA Data_decoding;
 extern unsigned char channel, Config_Neutral, Config_PhaseA, Config_PhaseB, Config_PhaseC;
 
 extern volatile unsigned int screen, ch, newBUTTON2, newLED4, newBUTTON3, newLED3,
-        oldBUTTON2, oldBUTTON3;
+        oldBUTTON2, oldBUTTON3, newBUTTON4, start_flag_state;
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 /*****************************************************

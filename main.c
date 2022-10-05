@@ -92,9 +92,9 @@ char line1_format[]=" MCP3910 PIC24  ";
 char line2_format[]="Evaluation board";
 
 // My variables
-int32_t Vmcp[68], Imcp[68];
-double Vconv[68], Iconv[68];
-double Vrms, Irms, P, Q, S, PF;
+int32_t Vmcp[150], Imcp[150];
+double Vconv[150], Iconv[150];
+double Vrms, Irms, P, Q, S, PF;  
 char str_Vrms[10]={0};
 char str_Irms[10]={0};
 char str_P[10]={0};
@@ -104,7 +104,7 @@ char str_PF[10]={0};
 char send[100]=":";
 
 volatile unsigned int screen=0, ch=0, newPORTD=0, newLED4=0, newBUTTON2=0, newBUTTON3=0, newLED3=0,
-                    oldBUTTON2=0, oldBUTTON3=0;
+                    oldBUTTON2=0, oldBUTTON3=0, newBUTTON4=0, start_flag_state=0;
 
 
 
@@ -198,63 +198,71 @@ int main (void)
     CNEN1bits.CN15IE = 1;   // Interrupt enabled. Pin : RD6
     IEC1bits.CNIE = 1;      // Enable CNI interrupt
     IFS1bits.CNIF = 0;      // Clear CNI interrupt flag
-
+    
+    Flags1.bits.Start_cycle=1;
     while(1)
     {
-        receive_data();
-        if (Flags1.bits.Start_transmision)  // It shoud be 1 when the buffer is full
+        // receive_data();      // Not recieving data
+        // Start cycle lines from recieve_data()
+        if (Flags1.bits.Start_cycle==0)
         {
-            //transmit_data();
-            // Calculations should probably be done here. Needs to be tested
-            if(channel != ch)
+                Flags1.bits.Start_cycle=1;
+                if (SPI1STATbits.SPIROV)
+                {
+                        SPI1STATbits.SPIROV	= 0;			//Clear overflow
+                }
+                IFS0bits.SPI1IF=0;
+                IEC0bits.SPI1IE=1;          			//enable SPI interrupt -> ADC data reception
+        }
+        // When BUFFER_SIZE samples have been captured
+        if (Flags1.bits.Start_transmision)  // It should be 1 when the buffer is full
+        {
+            //transmit_data();  // Not transmitting this data
+            // Calculations when the buffer is full
+            // Two periods of voltage and current
+            for(i=0;i<150;i++)
             {
-                channel=ch;
-            }
-        }
-        
-        // Two periods of voltage and current
-        for(i=0;i<68;i++)
-        {
-            Vmcp[i]= ((uint32_t)voltage_msb[i] << 16) | ((uint32_t)voltage_nsb[i] << 8) | (uint32_t)voltage_lsb[i];            
-            Imcp[i]= ((uint32_t)current_msb[i] << 16) | ((uint32_t)current_nsb[i] << 8) | (uint32_t)current_lsb[i];
+                Vmcp[i]= ((uint32_t)voltage_msb[i] << 16) | ((uint32_t)voltage_nsb[i] << 8) | (uint32_t)voltage_lsb[i];            
+                Imcp[i]= ((uint32_t)current_msb[i] << 16) | ((uint32_t)current_nsb[i] << 8) | (uint32_t)current_lsb[i];
             
-            Vconv[i]=Vmcp[i]*3.3/8388607;
-            Iconv[i]=Imcp[i]*5/8388607;        
+                Vconv[i]=Vmcp[i]*1.2/8388607;
+                Iconv[i]=Imcp[i]*1.2/8388607;        
+            }
+            // RMS values
+            Vrms=Calc_RMS(Vconv,150);
+            Irms=Calc_RMS(Iconv,150);
+            // P, Q, S, PF
+            P=Calc_P(Vconv,Iconv,150);
+            Q=Calc_Q(Vconv,Iconv,150);
+            S=Vrms*Irms;
+            if (S<0.01)
+                PF=1;   // Protection so that there's never /0
+            else
+                PF=P/S;
+            // Saving in strings
+            sprintf(str_Vrms,"%.3f",Vrms);
+            sprintf(str_Irms,"%.3f",Irms);
+            sprintf(str_P,"%.3f",P);
+            sprintf(str_Q,"%.3f",Q);
+            sprintf(str_S,"%.3f",S);
+            sprintf(str_PF,"%.3f",PF);
+            
+            // Assemble string to send data
+            snprintf(send,sizeof(send),"%s,%s,%s,%s,%s,%s\n",str_Vrms,str_Irms,str_P,str_Q,str_S,str_PF);
+            send_UART(send);                    // Send values
+            
+            // End of transmit_data() to enable no acquisition
+            Flags1.bits.Start_transmision=0;    // Ready to capture again
+            if(Flags1.bits.Start_cycle==1)      // if acquisition is running enable the INT2 for a new acquisition
+			{
+				TMR2=0;
+				TMR3=0;
+				T2CONbits.TON=1;
+				LEDG=1;
+			}	
         }
         
-        // RMS values
-        Vrms=Calc_RMS(Vconv,68);
-        Irms=Calc_RMS(Iconv,68);
-        
-        // P, Q, S, PF
-        P=Calc_P(Vconv,Iconv,68);
-        Q=Calc_Q(Vconv,Iconv,68);
-        S=Vrms*Irms;
-        PF=P/S;
-        
-        // Guardar en strings
-        sprintf(str_Vrms,"%.3f",Vrms);
-        sprintf(str_Irms,"%.3f",Irms);
-        sprintf(str_P,"%.3f",P);
-        sprintf(str_Q,"%.3f",Q);
-        sprintf(str_S,"%.3f",S);
-        sprintf(str_PF,"%1.3f",PF);
-        
-        snprintf(send,sizeof(send),"%s,%s,%s,%s,%s,%s\n",str_Vrms,str_Irms,str_P,str_Q,str_S,str_PF);
-//        strcat(send,str_Vrms);
-//        strcat(send,",");
-//        strcat(send,str_Irms);
-//        strcat(send,",");
-//        strcat(send,str_P);
-//        strcat(send,",");
-//        strcat(send,str_Q);
-//        strcat(send,",");
-//        strcat(send,str_S);
-//        strcat(send,",");
-//        strcat(send,str_PF);
-//        strcat(send,";\n");
-//        
-         //LCD Display
+        //LCD Display
         switch(screen)
         {
             case 0:
@@ -262,30 +270,24 @@ int main (void)
                 sprintf(line2_format,"%s","Evaluation board");
                 break;
             case 1:
-                sprintf(line1_format," Channel = %d ", ch);
+                sprintf(line1_format," Channel = %d   ", ch);
                 sprintf(line2_format," MCP = %d       ", channel);
                 break;
-            case 2: 
-                sprintf(line1_format," Vrms = %.3f  ", Vrms);
-                sprintf(line2_format," Irms = %.3f  ", Irms);
+            case 2: // RMS
+                sprintf(line1_format,"#%d: Vrms = %.3f", channel, Vrms);
+                sprintf(line2_format,"#%d: Irms = %.3f", channel, Irms);
                 break;
-            case 3:
-                sprintf(line1_format," P = %.3f  ", P);
-                sprintf(line2_format," Q = %.3f  ", Q);
+            case 3: // P, Q
+                sprintf(line1_format,"#%d: P = %.5f ", channel, P);
+                sprintf(line2_format,"#%d: Q = %.5f ", channel, Q);
                 break;
             case 4:
-                sprintf(line1_format," S = %.3f  ", S);
-                sprintf(line2_format," PF = %.3f ", PF);
+                sprintf(line1_format,"#%d: S = %.5f  ", channel, S);
+                sprintf(line2_format,"#%d: PF = %.5f ", channel, PF);
                 break; 
         }
-        
-        send_text_format();
-//        
-//        sprintf(line1_format,"%d",RCON);
-//        send_text_format();
-//        //send_UART("24.323,5.300,50.687,60.567,34.898,0.987");
-        send_UART(send);
-        delay_ms(500);
+        send_text_format(); // Update screen
+        delay_ms(500);      // Wait
     }
     return 0;
 }

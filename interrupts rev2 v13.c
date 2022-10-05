@@ -171,8 +171,8 @@ void __attribute__((interrupt, no_auto_psv)) _SPI1Interrupt(void)
 				TMR4=0;
 				TMR5=0;				
 				//IPC1bits.OC2IP=4;		//Start TX
-				if(Flags1.bits.Start_cycle==1)        // Comented so that the flag below is always 1 when the aquisition stops
-                    Flags1.bits.Start_transmision = 1;
+				if(Flags1.bits.Start_cycle==1)        
+                    Flags1.bits.Start_transmision = 1;  // Buffer is full
 				counter_buffer=0;
 			}
 			else
@@ -250,6 +250,8 @@ void __attribute__((interrupt, no_auto_psv)) _CNInterrupt(void)
 {
     newBUTTON2=CN16;
     newBUTTON3=CN15;
+    newBUTTON4=CN19;
+    start_flag_state=Flags1.bits.Start_cycle;
     //newLED4=PORTAbits.RA9;
     //newLED3=PORTAbits.RA10;
     if(newBUTTON2==0)
@@ -263,6 +265,27 @@ void __attribute__((interrupt, no_auto_psv)) _CNInterrupt(void)
         ch++;
         if(ch>3)
             ch=0;
+    }
+    if(newBUTTON4==0)
+    {
+        if(start_flag_state==0)
+        {
+            // Start cycle when it is first pressed
+            Flags1.bits.Start_cycle=1;
+            if (SPI1STATbits.SPIROV)
+            {
+                SPI1STATbits.SPIROV	= 0;			//Clear overflow
+            }
+            IFS0bits.SPI1IF=0;
+            IEC0bits.SPI1IE=1;          			//enable SPI interrupt -> ADC data reception
+        }
+        else
+        {   // Stop cycle when it is pressed again
+            Flags1.bits.Start_cycle=0;
+            TMR2=0;
+            TMR3=0;
+            T2CONbits.TON=0;
+        }
     }
     IFS1bits.CNIF = 0;      // Clear CNI interrupt flag
 }
