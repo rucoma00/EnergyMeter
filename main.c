@@ -29,6 +29,7 @@ SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
  * Author               Date        Comment
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Adrian Mot			6/20/13    Modified for PIC24FJ256GA110 family
+ * Rubén Concejo 		30/11/22   Added modifications for wattmeter
  *****************************************************************************/
 // PIC24FJ256GA110 Configuration Bit Settings
 
@@ -92,21 +93,22 @@ char line1_format[]=" MCP3910 PIC24  ";
 char line2_format[]="Evaluation board";
 
 // My variables
-int32_t Vmcp[150], Imcp[150];
-double Vconv[150], Iconv[150];
-double Vrms, Irms, P, Q, S, PF;  
+int32_t Vmcp_CH0[BUFFER_LENGTH], Vmcp_CH1[BUFFER_LENGTH];
+double Vconv_CH0[BUFFER_LENGTH], Vconv_CH1[BUFFER_LENGTH];
+double Vrms_CH0=0, Vrms_CH1=0, Vrms=0, Irms=0, P=0, Q=0, S=0, PF=0, Energy=0;  
 char str_Vrms[10]={0};
 char str_Irms[10]={0};
 char str_P[10]={0};
 char str_Q[10]={0};
 char str_S[10]={0};
 char str_PF[10]={0};
+char str_Energy[10]={0};
 char send[100]=":";
 
-volatile unsigned int screen=0, ch=0, newPORTD=0, newLED4=0, newBUTTON2=0, newBUTTON3=0, newLED3=0,
-                    oldBUTTON2=0, oldBUTTON3=0, newBUTTON4=0, start_flag_state=0;
+volatile unsigned int screen=0, newBUTTON2=0, newBUTTON3=0, newBUTTON4=0, start_process=0;
 
-
+uint32_t adc_timer_raw;
+float    adc_timer_ms; 
 
 // My functions
 double Calc_RMS(double* param, int N){
@@ -142,8 +144,8 @@ double Calc_Q(double* Volts, double* Amps, int N)
  float suma=0;
  float Q;
  int i;
- for(i=0;i<N;i++){
- producto=Volts[i+N/4]*Amps[i];
+ for(i=N/4;i<N;i++){
+ producto=Volts[i-N/4]*Amps[i];
  suma+=producto;
  }
  Q=suma/N;
@@ -186,24 +188,35 @@ int main (void)
 
         OC1CON1bits.OCM = 0b101;    // This selects and starts the Edge Aligned PWM mode
     }
-    
     // CN interrupt
     IPC4bits.CNIP = 6;
-    DCN16=1;     // BUTTON2 como entrada
-    DCN15=1;    // BUTTON3 como entrada
-    DLEDR=0;    // LD3 como salida
-    DLEDG=0;    // LD4 como salida
+    DCN16=1;    // BUTTON2 input
+    //DCN15=1;    // BUTTON3 input
+    DCN19=1;    // BUTTON4 input
+    DLEDR=0;    // LD3 output
+    DLEDG=0;    // LD4 output
     
-    CNEN2bits.CN16IE = 1;   // Interupt enabled. Pin : RD7
-    CNEN1bits.CN15IE = 1;   // Interrupt enabled. Pin : RD6
+    CNEN2bits.CN16IE = 1;   // Interrupt enabled. Pin : RD7
+    //CNEN1bits.CN15IE = 1;   // Interrupt enabled. Pin : RD6
+    CNEN2bits.CN19IE = 1;   // Interrupt enabled. Pin : RD13
     IEC1bits.CNIE = 1;      // Enable CNI interrupt
     IFS1bits.CNIF = 0;      // Clear CNI interrupt flag
     
+    while(!start_process)   // Wait for the button to be pressed to start
+    {
+        delay_ms(300);
+        sprintf(line1_format,"%s","  Press SW4 to  ");
+        sprintf(line2_format,"%s","     begin      ");  
+        send_text_format();
+        delay_ms(300);
+        sprintf(line1_format,"%s"," MCP3910 PIC24  ");
+        sprintf(line2_format,"%s","Evaluation board");
+        send_text_format();
+    }
+    //channel=1;
     Flags1.bits.Start_cycle=1;
     while(1)
     {
-        // receive_data();      // Not recieving data
-        // Start cycle lines from recieve_data()
         if (Flags1.bits.Start_cycle==0)
         {
                 Flags1.bits.Start_cycle=1;
@@ -220,35 +233,37 @@ int main (void)
             //transmit_data();  // Not transmitting this data
             // Calculations when the buffer is full
             // Two periods of voltage and current
-            for(i=0;i<150;i++)
+            for(i=0;i<BUFFER_LENGTH;i++)
             {
-                Vmcp[i]= ((uint32_t)voltage_msb[i] << 16) | ((uint32_t)voltage_nsb[i] << 8) | (uint32_t)voltage_lsb[i];            
-                Imcp[i]= ((uint32_t)current_msb[i] << 16) | ((uint32_t)current_nsb[i] << 8) | (uint32_t)current_lsb[i];
+                Vmcp_CH0[i]= ((uint32_t)voltage_msb[i] << 16) | ((uint32_t)voltage_nsb[i] << 8) | (uint32_t)voltage_lsb[i];            
+                Imcp_CH1[i]= ((uint32_t)current_msb[i] << 16) | ((uint32_t)current_nsb[i] << 8) | (uint32_t)current_lsb[i];
             
-                Vconv[i]=Vmcp[i]*1.2/8388607;
-                Iconv[i]=Imcp[i]*1.2/8388607;        
+                Vconv_CH0[i]=Vmcp[i]*1.2/8388607;
+                Iconv_CH1[i]=Imcp[i]*1.2/8388607;        
             }
             // RMS values
-            Vrms=Calc_RMS(Vconv,150);
-            Irms=Calc_RMS(Iconv,150);
+            Vrms=Calc_RMS(Vconv,BUFFER_LENGTH);
+            Irms=Calc_RMS(Iconv,BUFFER_LENGTH);
             // P, Q, S, PF
-            P=Calc_P(Vconv,Iconv,150);
-            Q=Calc_Q(Vconv,Iconv,150);
+            P=Calc_P(Vconv_CH0,Vconv_CH1,BUFFER_LENGTH);
+            Q=Calc_Q(Vconv-CH0,Iconv_CH1,BUFFER_LENGTH);
             S=Vrms*Irms;
-            if (S<0.01)
+            if (S<0.001)
                 PF=1;   // Protection so that there's never /0
             else
                 PF=P/S;
             // Saving in strings
-            sprintf(str_Vrms,"%.3f",Vrms);
-            sprintf(str_Irms,"%.3f",Irms);
-            sprintf(str_P,"%.3f",P);
-            sprintf(str_Q,"%.3f",Q);
-            sprintf(str_S,"%.3f",S);
-            sprintf(str_PF,"%.3f",PF);
+            sprintf(str_Vrms,"%3.2f",Vrms);
+            sprintf(str_Irms,"%2.3f",Irms);
+            sprintf(str_P,"%.5f",P);
+            sprintf(str_Q,"%.5f",Q);
+            sprintf(str_S,"%.2f",S);
+            sprintf(str_PF,"%.5f",PF);
+            sprintf(str_Energy,"%.1f",Energy);
+            
             
             // Assemble string to send data
-            snprintf(send,sizeof(send),"%s,%s,%s,%s,%s,%s\n",str_Vrms,str_Irms,str_P,str_Q,str_S,str_PF);
+            snprintf(send,sizeof(send),"%s,%s,%s,%s,%s,%s,%s\n",str_Vrms,str_Irms,str_P,str_Q,str_S,str_PF,str_Energy);
             send_UART(send);                    // Send values
             
             // End of transmit_data() to enable no acquisition
@@ -269,25 +284,37 @@ int main (void)
                 sprintf(line1_format,"%s"," MCP3910 PIC24  ");
                 sprintf(line2_format,"%s","Evaluation board");
                 break;
-            case 1:
-                sprintf(line1_format," Channel = %d   ", ch);
-                sprintf(line2_format," MCP = %d       ", channel);
-                break;
-            case 2: // RMS
+            case 1: // RMS
                 sprintf(line1_format,"#%d: Vrms = %.3f", channel, Vrms);
                 sprintf(line2_format,"#%d: Irms = %.3f", channel, Irms);
                 break;
-            case 3: // P, Q
+            case 2: // P, Q
                 sprintf(line1_format,"#%d: P = %.5f ", channel, P);
                 sprintf(line2_format,"#%d: Q = %.5f ", channel, Q);
                 break;
-            case 4:
+            case 3: // S, PF
                 sprintf(line1_format,"#%d: S = %.5f  ", channel, S);
                 sprintf(line2_format,"#%d: PF = %.5f ", channel, PF);
-                break; 
+                break;
+            case 4:
+                sprintf(line1_format,"#%d: ADCms = %f", channel, adc_timer_ms);
+                sprintf(line2_format,"#%d: Eng =  %f ", channel, Energy);
+                break;
+
         }
         send_text_format(); // Update screen
-        delay_ms(500);      // Wait
+        //delay_ms(500);      // Wait
+        while(start_process==0)
+        {
+            delay_ms(800);
+            sprintf(line1_format,"%s","  Press SW4 to  ");
+            sprintf(line2_format,"%s","    continue    ");  
+            send_text_format();
+            delay_ms(800);
+            sprintf(line1_format,"%s","Process on break");
+            sprintf(line2_format,"%s","   Waiting...   ");
+            send_text_format();
+        }
     }
     return 0;
 }
