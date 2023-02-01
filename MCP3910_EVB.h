@@ -202,7 +202,7 @@ typedef union
   
   
 #define CS_delay		3
-#define BUFFER_LENGTH 	2048
+#define BUFFER_LENGTH 	250
 #define board_ID		"ADM00425"
 #define firmware_ID		"1.0.0"
 
@@ -238,8 +238,7 @@ extern FLAGS Flags1;
 extern WDATA Data_decoding;
 extern unsigned char channel, Config_Neutral, Config_PhaseA, Config_PhaseB, Config_PhaseC;
 
-extern volatile unsigned int screen, ch, newBUTTON2, newLED4, newBUTTON3, newLED3,
-        oldBUTTON2, oldBUTTON3, newBUTTON4, start_flag_state;
+extern volatile unsigned int screen, newBUTTON2, newBUTTON3, newBUTTON4, start_process;
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 /*****************************************************
