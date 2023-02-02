@@ -8,7 +8,7 @@ in graphs.
 It has only been tested using fictional loads. An RC circuit was used to simulate a phase shift.  By choosing R = 1kΩ and C = 47µF the theoretical maximum voltage
 at the resistor would be VR = 498.9mV and, at the capacitor, 33.8mV.
 
-This repository covers the ADC Concverter and the MCU module.
+This repository covers the ADC Concverter and the MCU module. The code for the wifi module can be found [here](https://github.com/rucoma00/EnergyMeter_WiFi_Com).
 
 ## Hardware specifications
 This design will consider a 50Hz source frequency (Europe). The following picture shows the general schematic that the design follows. 
