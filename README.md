@@ -5,7 +5,7 @@ waves. It uses the readings to calculate power-related data and then sends them 
 of transmitting the data via WiFi. When accessing the ESP32’s local IP address in a LAN through a web browser, the user can see the real-time data displayed
 in graphs.
 
-It has only been tested using fictional loads. An RC circuit was used to simulate a phase shift.  By choosing R = 1kΩ and C = 47µF the theoretical maximum voltage
+***It has only been tested using fictional loads.*** An RC circuit was used to simulate a phase shift.  By choosing R = 1kΩ and C = 47µF the theoretical maximum voltage
 at the resistor would be VR = 498.9mV and, at the capacitor, 33.8mV.
 
 This repository covers the ADC Concverter and the MCU module. The code for the wifi module can be found [here](https://github.com/rucoma00/EnergyMeter_WiFi_Com).
@@ -47,5 +47,6 @@ is chosen to be BUFFER LENGHT = 250. This number allows to sample more
 than 3 periods of the signal every cycle, which produces enough data to perform the calculations.
 
 ### Foreground process
+The following algorithm 
 
 
