@@ -14,4 +14,38 @@ This repository covers the ADC Concverter and the MCU module. The code for the w
 This design will consider a 50Hz source frequency (Europe). The following picture shows the general schematic that the design follows. 
 ![General shematic](Media/Esquema_Basico_Vatimetro.png)
 
+The [MCP3910 Evaluation board](https://www.microchip.com/en-us/development-tool/adm00425) is used to aquire data. Since the design considers a single-phase application, only one MCP3910 is needed. Device *N* is chosen for the prototype, since the rest of the ADCs will not be used,
+meaning that there is no need for isolation. It is configured so that it is always operating in
+2-Wire interface (*TWI*) mode, which works in a very similar way to *I2C* and it is compatible with most *I2C* devices. This mode uses the SPI pins to operate.
+
+### Board hardware configuration
+The following table describes the hardware cinfiguration of the MCP3910:
+|MCP3910 pin| Logic value | Configuration |
+| --------- | ----------- | ------------- |
+| Current boost | 1 | 1x |
+| Gain [1, 0] | [0, 0] | PGA = 1 |
+| OSR [1, 0] | [1 ,0] | 256 |
+
+## Software specifications
+The *PIC24FJ256GA* *MCU* integrated in the evaluation board comes with a firmware that
+allows the user to evaluate the performance of one of the four ADCs at a time. The data from
+the converters is transmitted via USB to the computer and can be displayed in a *GUI* provided the Microchip PC applications Energy Management Utility
+and Hi-Resolution ADC Utility. The latest version of the firmware and the applications can
+be found on the [Microchip website](https://www.microchip.com/en-us/development-tool/adm00425).
+
+Most of the code meets the watt-meter design specifications. A a matter of fact, some of
+its functions implement tasks that are essential pieces of the code of a digital watt-meter, like
+the routine for reading the *ADCs*. For these reasons, the default firmware will be the base for
+the *MCP3910 Evaluation Board* software design. New lines of code and functions will be
+added on the existing files to create a software application that fulfills the watt-meter design
+requirements.
+
+The buffers MSB, NSB and LSB arrays hold 2048 samples by default, using around 80% of
+the available memory. The new software will make use of new arrays and variables that will
+also use a large amount of memory so the buffer size must be reduced. In order to capture a number of samples sufficient for this application, the new buffer length
+is chosen to be BUFFER LENGHT = 250. This number allows to sample more
+than 3 periods of the signal every cycle, which produces enough data to perform the calculations.
+
+### Foreground process
+
 
