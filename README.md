@@ -10,6 +10,8 @@ at the resistor would be VR = 498.9mV and, at the capacitor, 33.8mV.
 
 This repository covers the ADC Concverter and the MCU module. The code for the wifi module can be found [here](https://github.com/rucoma00/EnergyMeter_WiFi_Com).
 
+![General shematic](Media/Device_Assembly.jpg)
+
 ## Hardware specifications
 This design will consider a 50Hz source frequency (Europe). The following picture shows the general schematic that the design follows. 
 ![General shematic](Media/Esquema_Basico_Vatimetro.png)
@@ -47,6 +49,13 @@ is chosen to be BUFFER LENGHT = 250. This number allows to sample more
 than 3 periods of the signal every cycle, which produces enough data to perform the calculations.
 
 ### Foreground process
-The following algorithm 
+The following algorithm describes the foreground process carried by the microcontroller: 
+![General shematic](Media/flux_full_process.png)
 
+The cotinous loop performs the following algorithm:
+![General shematic](Media/While1.png)
+
+### Background process
+The following algorith describes the background (interrupt) process:
+![General shematic](Media/cninterrupt.png)
 
