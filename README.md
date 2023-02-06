@@ -5,6 +5,8 @@ waves. It uses the readings to calculate power-related data and then sends them 
 of transmitting the data via WiFi. When accessing the ESP32’s local IP address in a LAN through a web browser, the user can see the real-time data displayed
 in graphs.
 
+The project document can be found [here](https://unioviedo-my.sharepoint.com/:b:/g/personal/uo270900_uniovi_es/EQzcYe0qi8hMoIPFvTlWhh0BiYHRrlX2mXz5ZHV1bIPMYQ?e=FPoK43). Please refer to it for further information about the project.
+
 ***It has only been tested using fictional loads.*** An RC circuit was used to simulate a phase shift.  By choosing R = 1kΩ and C = 47µF the theoretical maximum voltage
 at the resistor would be VR = 498.9mV and, at the capacitor, 33.8mV.
 
